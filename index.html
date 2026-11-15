@@ -1,0 +1,569 @@
+```html
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>মেডিসিন কোম্পানি সর্টার (AI Medicine Sorter)</title>
+    <!-- Tailwind CSS লোড করা হচ্ছে -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- বাংলা এবং ইংরেজি ফন্টের জন্য Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- আইকনের জন্য Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Hind Siliguri', 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        /* কাস্টম স্ক্রলবার */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 pb-12">
+
+    <!-- হেডার সেকশন -->
+    <header class="bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-white/20 p-2 rounded-xl backdrop-blur-sm">
+                    <i data-lucide="pill" class="w-7 h-7 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-tight">মেডিসিন সর্টার AI</h1>
+                    <p class="text-xs sm:text-sm text-teal-100">ওষুধের নাম থেকে কোম্পানি অনুযায়ী তালিকা তৈরি করুন</p>
+                </div>
+            </div>
+            <button onclick="resetApp()" class="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition flex items-center gap-1 text-sm font-medium" title="নতুন করে শুরু করুন">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">রিসেট</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- মূল কন্টেইনার -->
+    <main class="max-w-4xl mx-auto px-4 mt-6 space-y-6">
+
+        <!-- মেসেজ বক্স (alert এর পরিবর্তে) -->
+        <div id="toastMessage" class="hidden fixed bottom-5 right-5 z-50 max-w-sm bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-2 opacity-0">
+            <i id="toastIcon" data-lucide="info" class="w-5 h-5 text-teal-400 shrink-0"></i>
+            <span id="toastText" class="text-sm font-medium"></span>
+        </div>
+
+        <!-- ইনপুট সেকশন কার্ড -->
+        <section class="glass-card rounded-2xl shadow-sm p-5 sm:p-6">
+            <!-- ট্যাব বাটনসমূহ -->
+            <div class="flex p-1 bg-slate-100 rounded-xl mb-5">
+                <button id="tabImageBtn" onclick="switchTab('image')" class="flex-1 py-2.5 px-4 rounded-lg text-sm sm:text-base font-semibold transition-all flex items-center justify-center gap-2 bg-white text-teal-700 shadow-sm">
+                    <i data-lucide="camera" class="w-4 h-4"></i>
+                    <span>ছবি আপলোড / তুলুন</span>
+                </button>
+                <button id="tabTextBtn" onclick="switchTab('text')" class="flex-1 py-2.5 px-4 rounded-lg text-sm sm:text-base font-semibold transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>নাম লিখে দিন</span>
+                </button>
+            </div>
+
+            <!-- ছবি ইনপুট প্যানেল -->
+            <div id="imageInputPanel" class="space-y-4">
+                <div id="dropZone" class="border-2 border-dashed border-teal-300 bg-teal-50/50 hover:bg-teal-50 rounded-2xl p-6 sm:p-8 text-center transition cursor-pointer relative">
+                    <input type="file" id="imageFileInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+                    
+                    <div id="uploadPrompt" class="space-y-3">
+                        <div class="w-14 h-14 bg-teal-100 text-teal-600 rounded-2xl flex items-center justify-center mx-auto">
+                            <i data-lucide="image-plus" class="w-7 h-7"></i>
+                        </div>
+                        <div>
+                            <p class="text-base sm:text-lg font-semibold text-slate-700">প্রেসক্রিপশন বা ওষুধের লিস্টের ছবি দিন</p>
+                            <p class="text-xs sm:text-sm text-slate-500 mt-1">গ্যালারি থেকে ছবি বাছাই করুন অথবা সরাসরি ক্যামেরা দিয়ে ছবি তুলুন</p>
+                        </div>
+                        <div class="flex flex-wrap justify-center gap-3 pt-2">
+                            <button type="button" onclick="triggerFileInput(false)" class="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium rounded-xl shadow-sm transition flex items-center gap-2">
+                                <i data-lucide="upload" class="w-4 h-4"></i> গ্যালারি থেকে নিন
+                            </button>
+                            <button type="button" onclick="triggerFileInput(true)" class="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-xl shadow-sm transition flex items-center gap-2">
+                                <i data-lucide="camera" class="w-4 h-4 text-teal-600"></i> ছবি তুলুন
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ছবি প্রিভিউ -->
+                    <div id="imagePreviewContainer" class="hidden relative max-w-md mx-auto">
+                        <img id="imagePreview" src="" alt="Uploaded Medicine List" class="max-h-64 w-auto mx-auto rounded-xl shadow-md border border-slate-200 object-contain">
+                        <button type="button" onclick="clearImage(event)" class="absolute -top-3 -right-3 bg-rose-500 hover:bg-rose-600 text-white p-2 rounded-full shadow-lg transition" title="ছবি মুছে ফেলুন">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- টেক্সট ইনপুট প্যানেল -->
+            <div id="textInputPanel" class="hidden space-y-3">
+                <label for="medicineTextInput" class="block text-sm font-semibold text-slate-700">ওষুধের নামগুলো নিচে লিখুন বা পেস্ট করুন:</label>
+                <textarea id="medicineTextInput" rows="5" class="w-full p-4 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none text-slate-800 placeholder-slate-400 text-base transition" placeholder="উদাহরণ:&#10;Pan D&#10;Ecosprin 75&#10;Telma 40&#10;Augmentin 625&#10;Rosuvas 10"></textarea>
+                <div class="flex justify-between items-center text-xs text-slate-500">
+                    <span>প্রতিটি ওষুধ নতুন লাইনে বা কমা দিয়ে লিখতে পারেন</span>
+                    <button type="button" onclick="fillSampleText()" class="text-teal-600 hover:underline font-medium">উদাহরণ দেখুন</button>
+                </div>
+            </div>
+
+            <!-- সাবমিট বাটন -->
+            <div class="mt-6">
+                <button id="analyzeBtn" onclick="processMedicines()" class="w-full py-3.5 px-6 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white font-bold text-base sm:text-lg rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    <span>কোম্পানি অনুযায়ী ভাগ করুন</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- লোডিং স্টেট -->
+        <div id="loadingSection" class="hidden glass-card rounded-2xl p-8 text-center space-y-4">
+            <div class="relative w-16 h-16 mx-auto">
+                <div class="absolute inset-0 border-4 border-teal-200 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-teal-600 rounded-full border-t-transparent animate-spin"></div>
+                <i data-lucide="search" class="w-6 h-6 text-teal-600 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-800">ওষুধের নাম ও কোম্পানি খোঁজা হচ্ছে...</h3>
+                <p class="text-sm text-slate-500 mt-1">AI এবং গুগল সার্চের মাধ্যমে সঠিক ফার্মাসিউটিক্যাল কোম্পানি যাচাই করা হচ্ছে। অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন।</p>
+            </div>
+        </div>
+
+        <!-- ফলাফল সেকশন -->
+        <section id="resultsSection" class="hidden space-y-5">
+            <!-- ফলাফল হেডার ও সামগ্রিক অ্যাকশন -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div>
+                    <h2 class="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="layers" class="w-5 h-5 text-teal-600"></i>
+                        <span>কোম্পানি ভিত্তিক তালিকা</span>
+                    </h2>
+                    <p id="resultSummaryText" class="text-xs sm:text-sm text-slate-500 mt-0.5">মোট ০টি কোম্পানির অধীনে ০টি ওষুধ পাওয়া গেছে</p>
+                </div>
+                <button onclick="copyAllResults()" class="py-2.5 px-4 bg-slate-800 hover:bg-slate-900 text-white text-sm font-medium rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
+                    <i data-lucide="copy" class="w-4 h-4"></i>
+                    <span>সব তালিকা কপি করুন</span>
+                </button>
+            </div>
+
+            <!-- কোম্পানি কার্ড গ্রিড -->
+            <div id="companyCardsContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- ডাইনামিক কোম্পানি কার্ড এখানে যুক্ত হবে -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- লুকানো টেক্সটএরিয়া (ক্লিপবোর্ডে কপি করার জন্য) -->
+    <textarea id="clipboardHelper" class="sr-only" aria-hidden="true"></textarea>
+
+    <script>
+        // আইকন ইনিশিয়ালাইজেশন
+        lucide.createIcons();
+
+        // গ্লোবাল স্টেট
+        let currentTab = 'image';
+        let uploadedImageBase64 = null;
+        let uploadedImageMimeType = null;
+        let sortedData = [];
+
+        // API কী (রানটাইমে স্বয়ংক্রিয়ভাবে যুক্ত হবে)
+        const apiKey = "";
+
+        // ট্যাব পরিবর্তন ফাংশন
+        function switchTab(tab) {
+            currentTab = tab;
+            const tabImageBtn = document.getElementById('tabImageBtn');
+            const tabTextBtn = document.getElementById('tabTextBtn');
+            const imagePanel = document.getElementById('imageInputPanel');
+            const textPanel = document.getElementById('textInputPanel');
+
+            if (tab === 'image') {
+                tabImageBtn.className = "flex-1 py-2.5 px-4 rounded-lg text-sm sm:text-base font-semibold transition-all flex items-center justify-center gap-2 bg-white text-teal-700 shadow-sm";
+                tabTextBtn.className = "flex-1 py-2.5 px-4 rounded-lg text-sm sm:text-base font-semibold transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900";
+                imagePanel.classList.remove('hidden');
+                textPanel.classList.add('hidden');
+            } else {
+                tabTextBtn.className = "flex-1 py-2.5 px-4 rounded-lg text-sm sm:text-base font-semibold transition-all flex items-center justify-center gap-2 bg-white text-teal-700 shadow-sm";
+                tabImageBtn.className = "flex-1 py-2.5 px-4 rounded-lg text-sm sm:text-base font-semibold transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900";
+                textPanel.classList.remove('hidden');
+                imagePanel.classList.add('hidden');
+            }
+        }
+
+        // ফাইল ইনপুট ট্রিগার (গ্যালারি বা ক্যামেরা)
+        function triggerFileInput(useCamera) {
+            const fileInput = document.getElementById('imageFileInput');
+            if (useCamera) {
+                fileInput.setAttribute('capture', 'environment');
+            } else {
+                fileInput.removeAttribute('capture');
+            }
+            fileInput.click();
+        }
+
+        // ড্রপজোনে ক্লিক করলে ফাইল সিলেক্ট খোলা
+        document.getElementById('dropZone').addEventListener('click', (e) => {
+            if (e.target.tagName !== 'BUTTON' && !e.target.closest('button') && !uploadedImageBase64) {
+                triggerFileInput(false);
+            }
+        });
+
+        // ছবি আপলোড হ্যান্ডলার
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showToast('অনুগ্রহ করে একটি সঠিক ছবি ফাইল নির্বাচন করুন।', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const fullDataUrl = e.target.result;
+                uploadedImageMimeType = file.type;
+                uploadedImageBase64 = fullDataUrl.split(',')[1];
+
+                document.getElementById('imagePreview').src = fullDataUrl;
+                document.getElementById('uploadPrompt').classList.add('hidden');
+                document.getElementById('imagePreviewContainer').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // আপলোড করা ছবি মুছে ফেলা
+        function clearImage(event) {
+            if (event) event.stopPropagation();
+            uploadedImageBase64 = null;
+            uploadedImageMimeType = null;
+            document.getElementById('imageFileInput').value = '';
+            document.getElementById('imagePreview').src = '';
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('uploadPrompt').classList.remove('hidden');
+        }
+
+        // উদাহরণ টেক্সট পূরণ করা
+        function fillSampleText() {
+            document.getElementById('medicineTextInput').value = "Pan D\nEcosprin 75\nTelma 40\nGlycomet GP 2\nRosuvas 10\nAugmentin 625\nCalpol 650\nMontair LC";
+        }
+
+        // টোস্ট মেসেজ দেখানো
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toastMessage');
+            const toastText = document.getElementById('toastText');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastText.textContent = message;
+            
+            if (type === 'error') {
+                toastIcon.setAttribute('data-lucide', 'alert-circle');
+                toastIcon.className = 'w-5 h-5 text-rose-400 shrink-0';
+            } else if (type === 'success') {
+                toastIcon.setAttribute('data-lucide', 'check-circle-2');
+                toastIcon.className = 'w-5 h-5 text-emerald-400 shrink-0';
+            } else {
+                toastIcon.setAttribute('data-lucide', 'info');
+                toastIcon.className = 'w-5 h-5 text-teal-400 shrink-0';
+            }
+            lucide.createIcons();
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 300);
+            }, 3500);
+        }
+
+        // এক্সপোনেনশিয়াল ব্যাকঅফ সহ API কল ফাংশন
+        async function fetchWithRetry(url, options, maxRetries = 4) {
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return await response.json();
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        // মূল প্রসেসিং ফাংশন (Gemini API + Google Search Grounding)
+        async function processMedicines() {
+            const textInput = document.getElementById('medicineTextInput').value.trim();
+
+            if (currentTab === 'image' && !uploadedImageBase64) {
+                showToast('অনুগ্রহ করে প্রথমে একটি ছবি আপলোড করুন বা তুলুন।', 'error');
+                return;
+            }
+            if (currentTab === 'text' && !textInput) {
+                showToast('অনুগ্রহ করে ওষুধের নামগুলো লিখুন।', 'error');
+                return;
+            }
+
+            // UI আপডেট: লোডিং দেখানো
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const loadingSection = document.getElementById('loadingSection');
+            const resultsSection = document.getElementById('resultsSection');
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.classList.add('opacity-70', 'cursor-not-allowed');
+            loadingSection.classList.remove('hidden');
+            resultsSection.classList.add('hidden');
+
+            try {
+                const systemInstruction = `You are an expert pharmaceutical assistant specializing in Indian and Bangladeshi medicine brands. 
+Your job is to:
+1. Extract all medicine brand names (with strength/dosage if mentioned, e.g., "Pan D", "Ecosprin 75") from the user's provided image or text list.
+2. Identify the exact pharmaceutical manufacturing/marketing company for each medicine (e.g., Sun Pharma, USV Pvt Ltd, Glenmark, Cipla, Alkem, GSK, Sanofi, Square Pharmaceuticals, Beximco, Incepta, etc.). Use Google Search to verify the exact manufacturer if needed.
+3. Group the medicines strictly by their Company Name.
+4. Keep medicine names clean and clear for pharmacy ordering. If quantity is mentioned in the input, include it with the medicine name.
+5. Output ONLY a valid JSON array matching this exact structure (no markdown code blocks, no extra text):
+[
+  {
+    "company": "Company Name (e.g., Sun Pharma)",
+    "medicines": [
+      {
+        "name": "Medicine Name & Strength",
+        "generic": "Short generic/composition name if known"
+      }
+    ]
+  }
+]
+If a medicine's company cannot be identified even after searching, group it under "অজানা কোম্পানি (Unknown Company)".`;
+
+                const userParts = [];
+                if (currentTab === 'image') {
+                    userParts.push({
+                        text: "এই ছবিতে থাকা সব ওষুধের নাম বের করুন এবং গুগল সার্চ করে কোনটি কোন কোম্পানির ওষুধ তা বের করে কোম্পানি অনুযায়ী আলাদা আলাদা ভাগ করে JSON ফরম্যাটে দিন।"
+                    });
+                    userParts.push({
+                        inlineData: {
+                            mimeType: uploadedImageMimeType,
+                            data: uploadedImageBase64
+                        }
+                    });
+                } else {
+                    userParts.push({
+                        text: `নিচের ওষুধের তালিকা থেকে প্রতিটি ওষুধ কোন কোম্পানির তা গুগল সার্চ করে বের করুন এবং কোম্পানি অনুযায়ী আলাদা আলাদা ভাগ করে JSON ফরম্যাটে দিন:\n\n${textInput}`
+                    });
+                }
+
+                const payload = {
+                    contents: [{ role: "user", parts: userParts }],
+                    systemInstruction: {
+                        parts: [{ text: systemInstruction }]
+                    },
+                    tools: [{ "google_search": {} }]
+                };
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                
+                const result = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!rawText) {
+                    throw new Error("AI থেকে কোনো উত্তর পাওয়া যায়নি।");
+                }
+
+                // JSON পার্স করা (যদি মার্কডাউন ব্যাকটিক থাকে তবে তা পরিষ্কার করা)
+                const cleanedJsonText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const parsedGroups = JSON.parse(cleanedJsonText);
+
+                if (!Array.isArray(parsedGroups) || parsedGroups.length === 0) {
+                    showToast('ছবি বা লেখা থেকে কোনো ওষুধের নাম শনাক্ত করা যায়নি। আবার চেষ্টা করুন।', 'error');
+                } else {
+                    sortedData = parsedGroups;
+                    renderResults(parsedGroups);
+                    showToast('সফলভাবে কোম্পানি অনুযায়ী ওষুধগুলো ভাগ করা হয়েছে!', 'success');
+                }
+
+            } catch (error) {
+                console.error("Error processing medicines:", error);
+                showToast('দুঃখিত, তথ্য বিশ্লেষণ করতে সমস্যা হয়েছে। ছবিটি পরিষ্কার কিনা দেখে আবার চেষ্টা করুন।', 'error');
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.classList.remove('opacity-70', 'cursor-not-allowed');
+                loadingSection.classList.add('hidden');
+            }
+        }
+
+        // ফলাফল রেন্ডার করার ফাংশন
+        function renderResults(groups) {
+            const container = document.getElementById('companyCardsContainer');
+            const resultsSection = document.getElementById('resultsSection');
+            const summaryText = document.getElementById('resultSummaryText');
+
+            container.innerHTML = '';
+
+            let totalMedicines = 0;
+            groups.forEach(g => {
+                if (Array.isArray(g.medicines)) {
+                    totalMedicines += g.medicines.length;
+                }
+            });
+
+            summaryText.textContent = `মোট ${groups.length}টি কোম্পানির অধীনে ${totalMedicines}টি ওষুধ পাওয়া গেছে`;
+
+            // কার্ডের জন্য সুন্দর রঙের প্যালেট
+            const badgeColors = [
+                'bg-teal-100 text-teal-800 border-teal-200',
+                'bg-blue-100 text-blue-800 border-blue-200',
+                'bg-indigo-100 text-indigo-800 border-indigo-200',
+                'bg-emerald-100 text-emerald-800 border-emerald-200',
+                'bg-amber-100 text-amber-800 border-amber-200',
+                'bg-purple-100 text-purple-800 border-purple-200'
+            ];
+
+            groups.forEach((group, index) => {
+                const colorClass = badgeColors[index % badgeColors.length];
+                const medList = group.medicines || [];
+
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col";
+
+                let medItemsHtml = '';
+                medList.forEach((med, mIdx) => {
+                    medItemsHtml += `
+                        <li class="py-2.5 px-3 flex items-start justify-between gap-2 hover:bg-slate-50 rounded-lg transition">
+                            <div class="flex items-start gap-2.5">
+                                <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">${mIdx + 1}</span>
+                                <div>
+                                    <p class="font-semibold text-slate-800 text-sm sm:text-base leading-snug">${escapeHtml(med.name)}</p>
+                                    ${med.generic ? `<p class="text-xs text-slate-500 mt-0.5">${escapeHtml(med.generic)}</p>` : ''}
+                                </div>
+                            </div>
+                        </li>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="p-4 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <div class="p-2 rounded-xl border ${colorClass} shrink-0">
+                                <i data-lucide="building-2" class="w-4 h-4"></i>
+                            </div>
+                            <div class="truncate">
+                                <h3 class="font-bold text-slate-800 text-base truncate" title="${escapeHtml(group.company)}">${escapeHtml(group.company)}</h3>
+                                <span class="text-xs font-medium text-slate-500">${medList.length}টি ওষুধ</span>
+                            </div>
+                        </div>
+                        <button onclick="copySingleCompany(${index})" class="p-2 text-slate-600 hover:text-teal-700 hover:bg-teal-50 rounded-xl transition flex items-center gap-1 text-xs font-semibold border border-slate-200 bg-white shrink-0" title="এই কোম্পানির তালিকা কপি করুন">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <span>কপি</span>
+                        </button>
+                    </div>
+                    <ul class="p-3 divide-y divide-slate-100 flex-1">
+                        ${medItemsHtml}
+                    </ul>
+                `;
+
+                container.appendChild(card);
+            });
+
+            resultsSection.classList.remove('hidden');
+            lucide.createIcons();
+            
+            // ফলাফলের দিকে স্মুথ স্ক্রল
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // একটি নির্দিষ্ট কোম্পানির ওষুধের তালিকা কপি করা
+        function copySingleCompany(index) {
+            const group = sortedData[index];
+            if (!group) return;
+
+            let textToCopy = `*${group.company}*\n`;
+            group.medicines.forEach((med, i) => {
+                textToCopy += `${i + 1}. ${med.name}\n`;
+            });
+
+            copyTextToClipboard(textToCopy.trim(), `${group.company}-এর তালিকা কপি হয়েছে!`);
+        }
+
+        // সব কোম্পানির তালিকা একসাথে কপি করা
+        function copyAllResults() {
+            if (!sortedData || sortedData.length === 0) return;
+
+            let fullText = "📋 *কোম্পানি অনুযায়ী ওষুধের অর্ডার তালিকা*\n\n";
+            sortedData.forEach(group => {
+                fullText += `🏢 *${group.company}*\n`;
+                group.medicines.forEach((med, i) => {
+                    fullText += `  ${i + 1}. ${med.name}\n`;
+                });
+                fullText += `\n`;
+            });
+
+            copyTextToClipboard(fullText.trim(), 'সম্পূর্ণ তালিকা কপি করা হয়েছে!');
+        }
+
+        // নিরাপদ ক্লিপবোর্ড কপি ফাংশন (document.execCommand ব্যবহার করে)
+        function copyTextToClipboard(text, successMsg) {
+            const helper = document.getElementById('clipboardHelper');
+            helper.value = text;
+            helper.select();
+            helper.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                showToast(successMsg, 'success');
+            } catch (err) {
+                showToast('কপি করতে সমস্যা হয়েছে।', 'error');
+            }
+        }
+
+        // XSS সুরক্ষার জন্য HTML এস্কেপ
+        function escapeHtml(unsafe) {
+            if (!unsafe) return '';
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // অ্যাপ রিসেট ফাংশন
+        function resetApp() {
+            clearImage();
+            document.getElementById('medicineTextInput').value = '';
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('loadingSection').classList.add('hidden');
+            sortedData = [];
+            showToast('সব তথ্য পরিষ্কার করা হয়েছে।', 'info');
+        }
+    </script>
+</body>
+</html>
+```
